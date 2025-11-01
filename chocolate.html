@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Roletas Interativas – Anel de Luzes Piscando</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: linear-gradient(to bottom right, #ede9fe 40%, #e0e7ff 100%); }
+        .wheel-container { position: relative; width: 440px; height: 440px; margin: 0 auto; }
+        .wheel { width: 100%; border-radius: 50%; border: 7px solid #333; }
+        .center { position: absolute; top:50%; left:50%; transform: translate(-50%,-50%); width: 62px; height:62px; border-radius: 50%; background:#333; color:#fff; display: flex; align-items: center; justify-content: center; font-size: 32px; z-index: 10; }
+        .casino-pointer {
+            display: flex; justify-content: center; align-items: flex-end;
+            position: relative; width: 100%; height: 65px; margin-bottom: -20px;
+            z-index: 15; pointer-events: none;
+        }
+        .casino-pointer svg {
+          filter: drop-shadow(0 5px 10px #444) drop-shadow(0px 0px 2px #fff8);
+        }
+        .lights-ring {
+            pointer-events: none;
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            z-index: 11;
+        }
+        .light-dot {
+            position: absolute;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            box-shadow: 0 0 12px 7px #fff6, 0 0 2px 1px #ffd700;
+            border: 2px solid #ffe600;
+            background: #fff400;
+            opacity: 0.99;
+            transition: background 0.3s, box-shadow 0.2s;
+        }
+        .light-dot.on {
+            background: #fff;
+            box-shadow: 0 0 24px 12px #fff8, 0 0 4px 2px #ffe300;
+        }
+    </style>
+</head>
+<body class="py-8">
+    <div class="container mx-auto px-2">
+        <header class="text-center mb-10 flex flex-col items-center justify-center gap-6">
+            <h1 class="text-4xl font-bold text-purple-800 mb-2">Roletas Interativas</h1>
+            <div class="flex items-center gap-2 mt-4 md:mt-0">
+                <button id="spinAll" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-4 px-14 rounded-lg transition text-2xl shadow-lg">Girar Ambas</button>
+            </div>
+        </header>
+        <div class="flex flex-col md:flex-row gap-16 justify-center items-start">
+            <!-- Roleta 1 - Projeto STEAM -->
+            <div class="bg-white rounded-xl shadow-lg p-7 w-full max-w-xl">
+                <h2 class="text-3xl font-semibold text-gray-800 text-center mb-4">STEAM - Roleta 1</h2>
+                <div class="casino-pointer">
+                  <svg width="90" height="66" viewBox="0 0 90 66">
+                    <polygon points="45,66 0,0 90,0" fill="#FFD700" stroke="#222" stroke-width="5"/>
+                    <ellipse cx="45" cy="18" rx="18" ry="11" fill="#fff8c5" stroke="#b08900" stroke-width="4"/>
+                    <ellipse cx="45" cy="18" rx="10" ry="6.5" fill="#fffde0" stroke="#a67c00" stroke-width="2"/>
+                  </svg>
+                </div>
+                <div class="wheel-container" id="wheel1-container">
+                    <canvas id="wheel1" width="440" height="440"></canvas>
+                    <div class="lights-ring" id="lights1"></div>
+                    <div class="center">🎯</div>
+                </div>
+                <div class="text-center">
+                    <button id="stop1" class="mt-7 bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 px-12 rounded-lg transition text-xl" disabled>Parar</button>
+                </div>
+            </div>
+            <!-- Roleta 2 -->
+            <div class="bg-white rounded-xl shadow-lg p-7 w-full max-w-xl">
+                <h2 class="text-3xl font-semibold text-gray-800 text-center mb-4">EMJCL - Roleta 2</h2>
+                <div class="casino-pointer">
+                  <svg width="90" height="66" viewBox="0 0 90 66">
+                    <polygon points="45,66 0,0 90,0" fill="#FFD700" stroke="#222" stroke-width="5"/>
+                    <ellipse cx="45" cy="18" rx="18" ry="11" fill="#fff8c5" stroke="#b08900" stroke-width="4"/>
+                    <ellipse cx="45" cy="18" rx="10" ry="6.5" fill="#fffde0" stroke="#a67c00" stroke-width="2"/>
+                  </svg>
+                </div>
+                <div class="wheel-container" id="wheel2-container">
+                    <canvas id="wheel2" width="440" height="440"></canvas>
+                    <div class="lights-ring" id="lights2"></div>
+                    <div class="center">🎯</div>
+                </div>
+                <div class="text-center">
+                    <button id="stop2" class="mt-7 bg-blue-700 hover:bg-blue-800 text-white font-bold py-3 px-12 rounded-lg transition text-xl" disabled>Parar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Setores e cores
+        const sectors = Array.from({length: 12}, (_, i) => i);
+        const colors1 = ["#e11d48", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444", "#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6366f1", "#14b8a6"];
+        const colors2 = ["#06b6d4", "#84cc16", "#f97316", "#ec4899", "#6366f1", "#14b8a6", "#e11d48", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ef4444"];
+        const lightColors = ["#ff4444","#44d9ff","#faff33","#39ff14","#ffa600","#b542f5","#ffe100","#ff9aec","#00ffcc","#ff856a","#6effa5","#ee82ee"];
+
+        let resultado1 = null, resultado2 = null;
+
+        function drawWheel(canvas, sectors, colors, rotation=0){
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            const N = sectors.length;
+            const cx = canvas.width/2, cy = canvas.height/2, r = canvas.width/2-10;
+            const angle = (2 * Math.PI) / N;
+            ctx.save();
+            ctx.translate(cx,cy);
+            ctx.rotate(rotation);
+            for(let i=0; i<N; i++){
+                ctx.beginPath();
+                ctx.moveTo(0,0);
+                ctx.arc(0,0, r, i*angle, (i+1)*angle, false);
+                ctx.closePath();
+                ctx.fillStyle = colors[i%colors.length];
+                ctx.fill();
+                ctx.strokeStyle="#222";
+                ctx.lineWidth=3;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.rotate(i*angle + angle/2);
+                ctx.translate(r*0.76,0);
+                ctx.rotate(Math.PI/2);
+                ctx.font="bold 36px system-ui";
+                ctx.fillStyle="#fff";
+                ctx.strokeStyle="#222";
+                ctx.lineWidth=4;
+                ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeText(sectors[i],0,0);
+                ctx.fillText(sectors[i],0,0);
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        // Luzes animadas e coloridas ao redor
+        function createLights(lightsDiv, numLights) {
+            lightsDiv.innerHTML = "";
+            const cx = 220, cy = 220, r = 215;
+            for (let i = 0; i < numLights; i++) {
+                let dot = document.createElement('div');
+                dot.className = 'light-dot';
+                let theta = (2 * Math.PI)*i/numLights - Math.PI/2;
+                let x = cx + r * Math.cos(theta) - 15;
+                let y = cy + r * Math.sin(theta) - 15;
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+                dot.style.background = lightColors[i%lightColors.length];
+                dot.style.borderColor = lightColors[(i+2)%lightColors.length];
+                lightsDiv.appendChild(dot);
+            }
+        }
+        function animateLights(lightsDiv, numLights) {
+            let phase = 0;
+            setInterval(() => {
+                for (let i = 0; i < numLights; i++) {
+                    let dot = lightsDiv.children[i];
+                    dot.classList.toggle('on', (i+phase)%6 === 0);
+                }
+                phase = (phase+1)%numLights;
+            }, 160);
+        }
+
+        let anim1, anim2, spinning1 = false, spinning2 = false;
+        let currentRotation1 = 0, currentRotation2 = 0;
+        let stopRequested1 = false, stopRequested2 = false;
+
+        function sortResult(rotation, sectors){
+            const N = sectors.length;
+            const anglePerSector = 2*Math.PI/N;
+            let offset = (Math.random() - 0.5) * (anglePerSector * 0.64);
+            let pointerAngle = ((-Math.PI/2 - rotation + offset + 2*Math.PI) % (2*Math.PI));
+            let chosenSector = Math.floor(pointerAngle/anglePerSector) % N;
+            return sectors[chosenSector];
+        }
+
+        function startInfiniteSpin(canvas, sectors, colors, which){
+            let speed = 0.22; // Velocidade aumentada!
+            function animate(){
+                if ((which===1 && stopRequested1) || (which===2 && stopRequested2)) {
+                    let finalAngle = (which===1 ? currentRotation1 : currentRotation2) % (2*Math.PI);
+                    let resultado = sortResult(finalAngle, sectors);
+                    if (which===1) {
+                        resultado1 = resultado;
+                        document.getElementById('stop1').disabled = true;
+                        spinning1 = false;
+                    }
+                    if (which===2) {
+                        resultado2 = resultado;
+                        document.getElementById('stop2').disabled = true;
+                        spinning2 = false;
+                    }
+                    return;
+                }
+                if (which===1) {
+                    currentRotation1 += speed;
+                    drawWheel(canvas, sectors, colors, currentRotation1);
+                    anim1 = requestAnimationFrame(animate);
+                }
+                if (which===2) {
+                    currentRotation2 += speed;
+                    drawWheel(canvas, sectors, colors, currentRotation2);
+                    anim2 = requestAnimationFrame(animate);
+                }
+            }
+            if (which===1) { spinning1 = true; anim1 = requestAnimationFrame(animate);}
+            if (which===2) { spinning2 = true; anim2 = requestAnimationFrame(animate);}
+        }
+
+        // Inicialização das luzes centrais e das roletas
+        const wheel1Canvas = document.getElementById('wheel1');
+        const wheel2Canvas = document.getElementById('wheel2');
+        drawWheel(wheel1Canvas, sectors, colors1, 0);
+        drawWheel(wheel2Canvas, sectors, colors2, 0);
+
+        createLights(document.getElementById('lights1'), 24);
+        animateLights(document.getElementById('lights1'), 24);
+        createLights(document.getElementById('lights2'), 24);
+        animateLights(document.getElementById('lights2'), 24);
+
+        document.getElementById('spinAll').onclick = function() {
+            resultado1 = null; resultado2 = null;
+            stopRequested1 = false; stopRequested2 = false;
+            document.getElementById('stop1').disabled = false;
+            document.getElementById('stop2').disabled = false;
+            if (!spinning1) { startInfiniteSpin(wheel1Canvas, sectors, colors1, 1);}
+            if (!spinning2) { startInfiniteSpin(wheel2Canvas, sectors, colors2, 2);}
+        };
+        document.getElementById('stop1').onclick = function() {
+            if (spinning1) stopRequested1 = true;
+        };
+        document.getElementById('stop2').onclick = function() {
+            if (spinning2) stopRequested2 = true;
+        };
+    </script>
+</body>
+</html>
